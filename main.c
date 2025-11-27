@@ -1,7 +1,7 @@
 //
 //
 #include "include/ssfx.h"
-int main()
+int main(int argc, char *argv[])
 {
 	// Get file size of /usr/bin/tar
 	FILE *fp = fopen("/usr/bin/tar", "rb");

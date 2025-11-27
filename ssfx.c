@@ -208,7 +208,7 @@ int ssfx_dump_a_file_to_disk(const char *_Nullable path, const char *_Nullable o
 	chmod(output_path, S_IRUSR | S_IWUSR | S_IXUSR);
 	return 0;
 }
-int ssfx_proc_fs_works()
+int ssfx_proc_fs_works(void)
 {
 	/*
 	 * Return 0 if /proc filesystem is not working
@@ -657,7 +657,7 @@ void ssfx_find_and_print_splitter_offsets(const char *_Nullable path)
 	int found_count = 0;
 	while (offset < file_size - sizeof(info.splitter)) {
 		if (memcmp(file_buffer + offset, info.splitter, sizeof(info.splitter)) == 0) {
-			printf("Found splitter at offset: %lu, after splitter is %lu\n", offset, offset + sizeof(info.splitter));
+			printf("Found splitter %d at offset: %lu, after splitter is %lu\n", found_count, offset, offset + sizeof(info.splitter));
 			found_count++;
 		}
 		offset++;
