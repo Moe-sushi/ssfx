@@ -35,63 +35,7 @@
 // PLEASE MAKE SURE THAT TAR EXECUTABLE IS ALSO STATICALLY LINKED
 // OTHERWISE, IT WILL EVEN NOT HAVE CROSS-LIBC COMPATIBILITY
 //
-/*
- * - ssfx design:
- * stage 0: original ssfx executable
- * stage 1: ssfx master
- * stage 2: ssfx pack
- *
- * - original ssfx:
- * stage 0: self executable
- * stage 1: create ssfx master with self executable and tar executable
- * - ssfx master:
- * stage 0: self executable
- * stage 1: dump tar executable
- * stage 2: create ssfx pack with self executable, tar executable and tar file
- * - ssfx pack:
- * stage 0: self executable
- * stage 1: dump tar executable and tar file
- * stage 2: unpack tar file using tar executable
- * stage 3: run entrance point from unpacked files
- * - conclusion:
- * ssfx master can be created from original ssfx executable
- * ssfx pack can be created from ssfx master
- * ssfx pack can be unpacked and run to extract and execute the entrance point
- *
- * - detection:
- * self_is_valid_ssfx_master() to detect ssfx master
- * self_is_valid_ssfx_pack() to detect ssfx pack
- * self_is_valid_ssfx_other() to detect ssfx other
- * - conclusion:
- * a program with ssfx have 4 states:
- * normal executable - can only pack self to ssfx master or ssfx other
- * ssfx master - can dump original exe and tar exe, can create ssfx pack
- * ssfx pack - can unpack and run to extract and execute the entrance point
- * ssfx other - only for detection using self_is_valid_ssfx_other()
- * - in graphical way:
- * [normal executable] --pack with tar exe--> [ssfx master]
- * [ssfx master] --dump original exe || tar exe--> [original exe || tar exe]
- * [ssfx master] --pack with tar file & entrance point--> [ssfx pack]
- * [ssfx pack] --unpack & run--> [unpacked files & entrance point executed]
- * [normal executable] --pack as ssfx other--> [ssfx other]
- *
- * - creating ssfx master:
- * pack_ssfx_master(tar_exe, output_file)
- *
- * - creating ssfx pack:
- * pack_ssfx_file(tar_file, output_file, entrance_point)
- * - unpacking and running ssfx pack:
- * unpack_and_run_ssfx(path)
- *
- * - dumping original executable from ssfx master:
- * dump_origional_exe(output_file)
- * - dumping tar executable from ssfx master:
- * dump_tar_exe(output_file)
- *
- * - creating ssfx other:
- * pack_ssfx_other(output_file)
- *
- */
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -100,47 +44,93 @@
 #include <sys/stat.h>
 #include <stdbool.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <sys/mount.h>
+#include <linux/memfd.h>
+#ifdef __ANDROID__
+#include <sys/syscall.h>
+#define memfd_create(...) syscall(SYS_memfd_create, __VA_ARGS__)
+#endif
+#ifndef _Nonnull
+#define _Nonnull
+#endif
+#ifndef _Nullable
+#define _Nullable
+#endif
+// SSFX definitions
 #define SSFX_MAGIC_START 0x114514FA
 #define SSFX_MAGIC_END 0x1919810A
 #define SSFX_SPLITTER "\n==114514SSFXSPLITTER==\n"
 #define SSFX_VERSION_MAJOR 0
 #define SSFX_VERSION_MINOR 9
-#define SSFX_VERSION_PATCH 0
-#define SSFX_VERSION_STRING "0.9.0"
-struct __attribute__((packed)) __attribute__((aligned(1))) ssfx_info_pack {
+#define SSFX_VERSION_PATCH 9
+#define SSFX_VERSION_STRING "0.9.9"
+struct __attribute__((packed)) __attribute__((aligned(1))) ssfx_info {
 	// SSFX information structure
-	// magic_start and magic_end are used to verify the structure
+	// For verfication
 	uint32_t magic_start; // Magic number at the start
-	uint64_t tar_offset_start; // Tar file offset start
-	uint64_t tar_offset_end; // Tar file offset end
-	uint64_t file_offset_start; // File offset start
-	uint64_t file_offset_end; // File offset end
+	uint64_t struct_size; // Size of this structure
+	// File offsets and comments
+	uint64_t self_end; // End of the main executable
+	uint64_t file_0_start; // Start of file 0
+	uint64_t file_0_end; // End of file 0
+	uint64_t file_0_id; // ID of file 0
+	char file_0_comment[512]; // Comment for file 0
+	uint64_t file_1_start; // Start of file 1
+	uint64_t file_1_end; // End of file 1
+	uint64_t file_1_id; // ID of file 1
+	char file_1_comment[512]; // Comment for file 1
+	uint64_t file_2_start; // Start of file 2
+	uint64_t file_2_end; // End of file 2
+	uint64_t file_2_id; // ID of file 2
+	char file_2_comment[512]; // Comment for file 2
+	uint64_t file_3_start; // Start of file 3
+	uint64_t file_3_end; // End of file 3
+	uint64_t file_3_id; // ID of file 3
+	char file_3_comment[512]; // Comment for file 3
+	uint64_t file_4_start; // Start of file 4
+	uint64_t file_4_end; // End of file 4
+	uint64_t file_4_id; // ID of file 4
+	char file_4_comment[512]; // Comment for file 4
+	// Other information
+	uint8_t ssfx_comment[512]; // Top-level comment
+	uint8_t ssfx_id; // Just a code
+	// For verfication
 	uint8_t splitter[32]; // Splitter string
-	uint8_t entrance_point[256]; // Entrance point string
 	uint32_t magic_end; // Magic number at the end
 };
-struct __attribute__((packed)) __attribute__((aligned(1))) ssfx_info_master {
-	// SSFX information structure
-	// magic_start and magic_end are used to verify the structure
-	uint32_t magic_start; // Magic number at the start
-	uint64_t tar_offset_start; // Tar file offset start
-	uint64_t tar_offset_end; // Tar file offset end
-	uint8_t splitter[32]; // Splitter string
-	uint32_t magic_end; // Magic number at the end
+struct ssfx_pack {
+	char *_Nullable self_path;
+	char *_Nullable file_0_path;
+	char *_Nullable file_0_comment;
+	uint64_t file_0_id;
+	char *_Nullable file_1_path;
+	char *_Nullable file_1_comment;
+	uint64_t file_1_id;
+	char *_Nullable file_2_path;
+	char *_Nullable file_2_comment;
+	uint64_t file_2_id;
+	char *_Nullable file_3_path;
+	char *_Nullable file_3_comment;
+	uint64_t file_3_id;
+	char *_Nullable file_4_path;
+	char *_Nullable file_4_comment;
+	uint64_t file_4_id;
+	char *_Nullable output_path;
+	char *_Nullable ssfx_comment;
+	uint8_t ssfx_id;
 };
-struct __attribute__((packed)) __attribute__((aligned(1))) ssfx_info_other {
-	// SSFX information structure
-	// magic_start and magic_end are used to verify the structure
-	uint32_t magic_start; // Magic number at the start
-	uint8_t splitter[32]; // Splitter string
-	uint32_t magic_end; // Magic number at the end
-};
-bool self_is_valid_ssfx_pack(void);
-bool self_is_valid_ssfx_master(void);
-bool self_is_valid_ssfx_other(void);
-void pack_ssfx_master(const char *tar_exe, const char *output_file);
-void pack_ssfx_file(const char *tar_file, const char *output_file, const char *entrance_point);
-void unpack_and_run_ssfx(const char *path);
-void dump_origional_exe(const char *output_file);
-void dump_tar_exe(const char *output_file);
-void pack_ssfx_other(const char *output_file);
+// Declarations
+void ssfx_init_ssfx_pack(struct ssfx_pack *_Nonnull pack);
+void ssfx_init_ssfx_info(struct ssfx_info *_Nonnull info);
+int ssfx_load_a_elf_to_memory(const char *_Nullable path, uint64_t start, uint64_t end);
+int ssfx_dump_a_file_to_disk(const char *_Nullable path, const char *_Nullable output_path, uint64_t start, uint64_t end);
+int ssfx_proc_fs_works(void);
+int ssfx_force_mount_procfs(void);
+int ssfx_verify_ssfx_info(const char *_Nullable path);
+struct ssfx_info ssfx_get_ssfx_info(const char *_Nullable path);
+void ssfx_print_ssfx_info(const char *_Nonnull path);
+int ssfx_append_file(FILE *_Nonnull in_fp, FILE *_Nonnull out_fp);
+int ssfx_pack_ssfx(struct ssfx_pack *_Nonnull pack);
+void ssfx_find_and_print_splitter_offsets(const char *_Nullable path);
