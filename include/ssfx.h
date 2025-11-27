@@ -73,35 +73,39 @@ struct __attribute__((packed)) __attribute__((aligned(1))) ssfx_info {
 	uint64_t struct_size; // Size of this structure
 	// File offsets and comments
 	uint64_t self_end; // End of the main executable
+	uint64_t self_id; // ID of the main executable
+	uint8_t self_comment[512]; // Comment for the main executable
 	uint64_t file_0_start; // Start of file 0
 	uint64_t file_0_end; // End of file 0
 	uint64_t file_0_id; // ID of file 0
-	char file_0_comment[512]; // Comment for file 0
+	uint8_t file_0_comment[512]; // Comment for file 0
 	uint64_t file_1_start; // Start of file 1
 	uint64_t file_1_end; // End of file 1
 	uint64_t file_1_id; // ID of file 1
-	char file_1_comment[512]; // Comment for file 1
+	uint8_t file_1_comment[512]; // Comment for file 1
 	uint64_t file_2_start; // Start of file 2
 	uint64_t file_2_end; // End of file 2
 	uint64_t file_2_id; // ID of file 2
-	char file_2_comment[512]; // Comment for file 2
+	uint8_t file_2_comment[512]; // Comment for file 2
 	uint64_t file_3_start; // Start of file 3
 	uint64_t file_3_end; // End of file 3
 	uint64_t file_3_id; // ID of file 3
-	char file_3_comment[512]; // Comment for file 3
+	uint8_t file_3_comment[512]; // Comment for file 3
 	uint64_t file_4_start; // Start of file 4
 	uint64_t file_4_end; // End of file 4
 	uint64_t file_4_id; // ID of file 4
-	char file_4_comment[512]; // Comment for file 4
+	uint8_t file_4_comment[512]; // Comment for file 4
 	// Other information
 	uint8_t ssfx_comment[512]; // Top-level comment
-	uint8_t ssfx_id; // Just a code
+	uint64_t ssfx_id; // Just a code
 	// For verfication
 	uint8_t splitter[32]; // Splitter string
 	uint32_t magic_end; // Magic number at the end
 };
 struct ssfx_pack {
 	char *_Nullable self_path;
+	char *_Nullable self_comment;
+	uint64_t self_id;
 	char *_Nullable file_0_path;
 	char *_Nullable file_0_comment;
 	uint64_t file_0_id;
@@ -119,7 +123,7 @@ struct ssfx_pack {
 	uint64_t file_4_id;
 	char *_Nullable output_path;
 	char *_Nullable ssfx_comment;
-	uint8_t ssfx_id;
+	uint64_t ssfx_id;
 };
 // Declarations
 void ssfx_init_ssfx_pack(struct ssfx_pack *_Nonnull pack);

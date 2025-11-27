@@ -35,6 +35,8 @@ void ssfx_init_ssfx_pack(struct ssfx_pack *_Nonnull pack)
 	 */
 	memset(pack, 0, sizeof(struct ssfx_pack));
 	pack->self_path = NULL;
+	pack->self_comment = NULL;
+	pack->self_id = 0;
 	pack->file_0_path = NULL;
 	pack->file_0_comment = NULL;
 	pack->file_1_path = NULL;
@@ -63,6 +65,8 @@ void ssfx_init_ssfx_info(struct ssfx_info *_Nonnull info)
 	info->magic_start = SSFX_MAGIC_START;
 	info->struct_size = sizeof(struct ssfx_info);
 	info->self_end = 0;
+	info->self_id = 0;
+	memset(info->self_comment, 0, sizeof(info->self_comment));
 	info->file_0_start = 0;
 	info->file_0_end = 0;
 	memset(info->file_0_comment, 0, sizeof(info->file_0_comment));
@@ -414,9 +418,11 @@ void ssfx_print_ssfx_info(const char *_Nonnull path)
 	}
 	struct ssfx_info info = ssfx_get_ssfx_info(path);
 	printf("SSFX Information:\n");
-	printf("  SSFX ID: %u\n", info.ssfx_id);
+	printf("  SSFX ID: %lu\n", info.ssfx_id);
 	printf("  SSFX Comment: %s\n", info.ssfx_comment);
 	printf("  Self End Offset: %lu\n", info.self_end);
+	printf("  Self ID: %lu\n", info.self_id);
+	printf("  Self Comment: %s\n", info.self_comment);
 	printf("  File 0: ID=%lu, Start=%lu, End=%lu, Comment=%s\n", info.file_0_id, info.file_0_start, info.file_0_end, info.file_0_comment);
 	printf("  File 1: ID=%lu, Start=%lu, End=%lu, Comment=%s\n", info.file_1_id, info.file_1_start, info.file_1_end, info.file_1_comment);
 	printf("  File 2: ID=%lu, Start=%lu, End=%lu, Comment=%s\n", info.file_2_id, info.file_2_start, info.file_2_end, info.file_2_comment);
@@ -475,8 +481,12 @@ int ssfx_pack_ssfx(struct ssfx_pack *_Nonnull pack)
 		return -1;
 	}
 	info.ssfx_id = pack->ssfx_id;
+	info.self_id = pack->self_id;
 	if (pack->ssfx_comment != NULL) {
 		strncpy((char *)info.ssfx_comment, pack->ssfx_comment, sizeof(info.ssfx_comment) - 1);
+	}
+	if (pack->self_comment != NULL) {
+		strncpy((char *)info.self_comment, pack->self_comment, sizeof(info.self_comment) - 1);
 	}
 	// Get self file size
 	fseek(self_fp, 0, SEEK_END);
@@ -496,7 +506,7 @@ int ssfx_pack_ssfx(struct ssfx_pack *_Nonnull pack)
 		info.file_0_start = ftell(out_fp);
 		info.file_0_id = pack->file_0_id;
 		if (pack->file_0_comment != NULL) {
-			strncpy(info.file_0_comment, pack->file_0_comment, sizeof(info.file_0_comment) - 1);
+			strncpy((char *)info.file_0_comment, pack->file_0_comment, sizeof(info.file_0_comment) - 1);
 		}
 		FILE *file_0_fp = fopen(pack->file_0_path, "rb");
 		if (file_0_fp == NULL) {
@@ -517,7 +527,7 @@ int ssfx_pack_ssfx(struct ssfx_pack *_Nonnull pack)
 		info.file_1_start = ftell(out_fp);
 		info.file_1_id = pack->file_1_id;
 		if (pack->file_1_comment != NULL) {
-			strncpy(info.file_1_comment, pack->file_1_comment, sizeof(info.file_1_comment) - 1);
+			strncpy((char *)info.file_1_comment, pack->file_1_comment, sizeof(info.file_1_comment) - 1);
 		}
 		FILE *file_1_fp = fopen(pack->file_1_path, "rb");
 		if (file_1_fp == NULL) {
@@ -538,7 +548,7 @@ int ssfx_pack_ssfx(struct ssfx_pack *_Nonnull pack)
 		info.file_2_start = ftell(out_fp);
 		info.file_2_id = pack->file_2_id;
 		if (pack->file_2_comment != NULL) {
-			strncpy(info.file_2_comment, pack->file_2_comment, sizeof(info.file_2_comment) - 1);
+			strncpy((char *)info.file_2_comment, pack->file_2_comment, sizeof(info.file_2_comment) - 1);
 		}
 		FILE *file_2_fp = fopen(pack->file_2_path, "rb");
 		if (file_2_fp == NULL) {
@@ -559,7 +569,7 @@ int ssfx_pack_ssfx(struct ssfx_pack *_Nonnull pack)
 		info.file_3_start = ftell(out_fp);
 		info.file_3_id = pack->file_3_id;
 		if (pack->file_3_comment != NULL) {
-			strncpy(info.file_3_comment, pack->file_3_comment, sizeof(info.file_3_comment) - 1);
+			strncpy((char *)info.file_3_comment, pack->file_3_comment, sizeof(info.file_3_comment) - 1);
 		}
 		FILE *file_3_fp = fopen(pack->file_3_path, "rb");
 		if (file_3_fp == NULL) {
@@ -580,7 +590,7 @@ int ssfx_pack_ssfx(struct ssfx_pack *_Nonnull pack)
 		info.file_4_start = ftell(out_fp);
 		info.file_4_id = pack->file_4_id;
 		if (pack->file_4_comment != NULL) {
-			strncpy(info.file_4_comment, pack->file_4_comment, sizeof(info.file_4_comment) - 1);
+			strncpy((char *)info.file_4_comment, pack->file_4_comment, sizeof(info.file_4_comment) - 1);
 		}
 		FILE *file_4_fp = fopen(pack->file_4_path, "rb");
 		if (file_4_fp == NULL) {
